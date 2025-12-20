@@ -17,8 +17,8 @@ int id3v1_file_check(const char *file_path);
 const char* id3v1_genre_name(unsigned char genre);
 
 void id3v1_print(const id3v1_tag *tag_ptr);
-int id3v1_read(char *file_path, id3v1_tag *tag_ptr);
-int id3v1_write(char *file_path, const id3v1_tag *tag_ptr);
+int id3v1_read(const char *file_path, id3v1_tag *tag_ptr);
+int id3v1_write(const char *file_path, const id3v1_tag *tag_ptr);
 //int id3v1_delete(char *file_path);
 
 int id3v1_set_title(id3v1_tag *tag_ptr, const char *title);

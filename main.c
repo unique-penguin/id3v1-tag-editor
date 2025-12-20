@@ -2,8 +2,9 @@
 #include <string.h>
 #include "id3v1.h"
 
-int main(int argc, char const *argv[])
-{
+int main(int argc, char const *argv[]){
+    printf("--- Init Tag ---\n\n");
+
     id3v1_tag tag;
     id3v1_tag *tag_ptr = &tag;
     id3v1_init(tag_ptr);
@@ -17,7 +18,7 @@ int main(int argc, char const *argv[])
     char album[] = "Dying of dispair";
     char year[] = "2004";
     char comment[] = "Is this worth it?";
-    unsigned char genre = 255;
+    unsigned char genre = 78;
 
     id3v1_set_title(tag_ptr, title);
     id3v1_set_artist(tag_ptr, artist);
@@ -35,6 +36,18 @@ int main(int argc, char const *argv[])
     printf("Year size: %ld\n", sizeof(tag_ptr->year));
     printf("Comment size: %ld\n", sizeof(tag_ptr->comment));
     printf("Genre size: %ld\n", sizeof(tag_ptr->genre));
+
+    printf("\n--- File ID3 tag ---\n\n");
+
+    if(argc < 2) return 0;
+
+    id3v1_init(tag_ptr);
+
+    if(id3v1_read(argv[1], tag_ptr) != 0){
+        return 0;
+    }
+
+    id3v1_print(tag_ptr);
     
     return 0;
 }

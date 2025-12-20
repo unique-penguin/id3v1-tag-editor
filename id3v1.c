@@ -104,8 +104,11 @@ void id3v1_print(const id3v1_tag *tag_ptr){
     printf("Genre   : %u (%s)\n", tag_ptr->genre, id3v1_genre_name(tag_ptr->genre));
 }
 
-int id3v1_read(char *file_path, id3v1_tag *tag_ptr){
-    if(id3v1_file_check(file_path) != 0) return 1;
+int id3v1_read(const char *file_path, id3v1_tag *tag_ptr){
+    if(id3v1_file_check(file_path) != 0){
+        printf("File isn't a .mp3 file or id3tag doesn't exist.\n");
+        return 1;
+    }
 
     FILE *file_ptr = fopen(file_path, "rb");
     if(!file_ptr){
@@ -126,8 +129,11 @@ int id3v1_read(char *file_path, id3v1_tag *tag_ptr){
     return 0;
 }
 
-int id3v1_write(char *file_path, const id3v1_tag *tag_ptr){
-    if(id3v1_file_check(file_path) != 0) return 1;
+int id3v1_write(const char *file_path, const id3v1_tag *tag_ptr){
+    if(!file_path || !tag_ptr) return 1;
+    if(id3v1_file_check(file_path) != 0) return 2;
+
+
 
     return 0;
 }
