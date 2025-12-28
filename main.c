@@ -3,51 +3,44 @@
 #include "id3v1.h"
 
 int main(int argc, char const *argv[]){
-    printf("--- Init Tag ---\n\n");
+    
+    const char *file_path = "Bôa - 1998 - Duvet.mp3";
 
-    id3v1_tag tag;
+
+    printf("--- Tag Init ---\n"); // empty
+
+    id3v1_tag tag = id3v1_tag_new();
     id3v1_tag *tag_ptr = &tag;
-    id3v1_init(tag_ptr);
-
+    
     id3v1_print(tag_ptr);
 
-    printf("\n--- Edited ---\n\n");
 
-    char title[] = "Does this line have 31 bytesmm";
-    char artist[] = "Joshua";
-    char album[] = "Dying of dispair";
-    char year[] = "2004";
-    char comment[] = "Is this worth it?";
-    unsigned char genre = 78;
-
-    id3v1_set_title(tag_ptr, title);
-    id3v1_set_artist(tag_ptr, artist);
-    id3v1_set_album(tag_ptr, album);
-    id3v1_set_year(tag_ptr, year);
-    id3v1_set_comment(tag_ptr, comment);
-    id3v1_set_genre(tag_ptr, genre);
-
+    printf("\n--- Read File Tag ---\n"); // empty
+    id3v1_read(file_path, tag_ptr);
     id3v1_print(tag_ptr);
 
-    printf("\n");
-    printf("Title size: %ld\n", sizeof(tag_ptr->title));
-    printf("Artitst size: %ld\n", sizeof(tag_ptr->artist));
-    printf("Album size: %ld\n", sizeof(tag_ptr->album));
-    printf("Year size: %ld\n", sizeof(tag_ptr->year));
-    printf("Comment size: %ld\n", sizeof(tag_ptr->comment));
-    printf("Genre size: %ld\n", sizeof(tag_ptr->genre));
 
-    printf("\n--- File ID3 tag ---\n\n");
+    printf("\n--- Write File Tag 1 ---\n"); // new_tag
+    id3v1_tag new_tag = id3v1_tag_new();
+    id3v1_tag *new_tag_ptr = &new_tag;
 
-    if(argc < 2) return 0;
+    id3v1_set_title(new_tag_ptr, "Duvet");
+    id3v1_set_album(new_tag_ptr, "Test Album");
+    id3v1_set_artist(new_tag_ptr, "Boa");
+    id3v1_set_year(new_tag_ptr, "1998");
 
-    id3v1_init(tag_ptr);
+    id3v1_write(file_path, new_tag_ptr);
+    id3v1_read(file_path, tag_ptr);
+    id3v1_print(tag_ptr);
 
-    if(id3v1_read(argv[1], tag_ptr) != 0){
-        return 0;
+
+    printf("\n--- Delete File Tag ---\n"); // tag was deleted
+    id3v1_delete(file_path);
+    if(id3v1_exists(file_path) == 0){
+        printf("Tag wasn't deleted.\n");
+    }else if(id3v1_exists(file_path) == 1){
+        printf("Tag was deleted.\n");
     }
 
-    id3v1_print(tag_ptr);
-    
     return 0;
-}
+} 

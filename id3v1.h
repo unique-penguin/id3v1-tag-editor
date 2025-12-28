@@ -10,16 +10,18 @@ typedef struct{
     unsigned char genre;    // --genre      -g
 } id3v1_tag;
 
-void id3v1_init(id3v1_tag *tag);
+id3v1_tag id3v1_tag_new(void);
+void id3v1_tag_init(id3v1_tag *tag);
 
 int id3v1_file_check(const char *file_path);
+int id3v1_exists(const char *file_path);
 
 const char* id3v1_genre_name(unsigned char genre);
 
 void id3v1_print(const id3v1_tag *tag_ptr);
 int id3v1_read(const char *file_path, id3v1_tag *tag_ptr);
 int id3v1_write(const char *file_path, const id3v1_tag *tag_ptr);
-//int id3v1_delete(char *file_path);
+int id3v1_delete(const char *file_path);
 
 int id3v1_set_title(id3v1_tag *tag_ptr, const char *title);
 int id3v1_set_artist(id3v1_tag *tag_ptr, const char *artist);

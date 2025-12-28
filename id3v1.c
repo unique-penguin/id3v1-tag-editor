@@ -1,22 +1,26 @@
 #include <stdio.h>
-#include <string.h> // for memset
+#include <string.h>
 #include <ctype.h>
 #include <sys/stat.h>
 #include "id3v1.h"
 
 #define ID3V1_TAG_SIZE 128
 #define KEYWORD "TAG"
+#define TEMP_FILE_EXTENSION ".tmp"
 
-void id3v1_init(id3v1_tag *tag){
+id3v1_tag id3v1_tag_new(void){
+    id3v1_tag tag;
+
+    memset(&tag, 0, sizeof(id3v1_tag));
+    tag.genre = 255;
+
+    return tag;
+}
+
+void id3v1_tag_init(id3v1_tag *tag){
     if(!tag) return;
-    
-    memset(tag->title, 0, sizeof(tag->title));
-    memset(tag->artist, 0, sizeof(tag->artist));
-    memset(tag->album, 0, sizeof(tag->album));
-    memset(tag->year, 0, sizeof(tag->year));
-    memset(tag->comment, 0, sizeof(tag->comment));
 
-    tag->genre = 255;
+    *tag = id3v1_tag_new();
 }
 
 int id3v1_file_check(const char *file_path) {
@@ -58,6 +62,41 @@ int id3v1_file_check(const char *file_path) {
     }
 
     return 0; // all checks passed
+}
+
+long int get_file_size(const char *file_path){
+    if(!file_path) return -1;
+    FILE *file_ptr = fopen(file_path, "rb");
+
+    fseek(file_ptr, 0, SEEK_END);
+    
+    return ftell(file_ptr);
+}
+
+int is_file_mp3(const char file_path){
+    if(!file_path) return -1;
+    
+}
+
+int id3v1_exists(const char *file_path){
+    FILE *file_ptr = fopen(file_path, "rb");
+    if(!file_ptr) return -1;
+
+    if(fseek(file_ptr, -128, SEEK_END) != 0){
+        perror("fseek");
+        return -1;
+    }
+
+    char keyword[3];
+
+    if(fread(keyword, 3, 1, file_ptr) != 1){
+        perror("fread");
+        return -1;
+    }
+
+    if(strncmp(keyword, KEYWORD, 3) != 0) return 1;
+
+    return 0;
 }
 
 static const char *id3v1_genres[] = {
@@ -130,10 +169,83 @@ int id3v1_read(const char *file_path, id3v1_tag *tag_ptr){
 }
 
 int id3v1_write(const char *file_path, const id3v1_tag *tag_ptr){
-    if(!file_path || !tag_ptr) return 1;
-    if(id3v1_file_check(file_path) != 0) return 2;
+    if(!file_path) return -1;
+    if(!tag_ptr) return -1;
 
+    int exists = id3v1_exists(file_path);
+    
+    if(exists == 1){
+        
+        FILE *file_ptr = fopen(file_path, "ab");
+        fwrite(KEYWORD, 3, 1, file_ptr);
+        fwrite(tag_ptr, ID3V1_TAG_SIZE - 3, 1, file_ptr);
+        fclose(file_ptr);
 
+        return 0;
+    }
+
+    if(exists == 0){
+        FILE *file_ptr = fopen(file_path, "r+b");
+        if(!file_ptr) return -1;
+        
+        if(fseek(file_ptr, ID3V1_TAG_SIZE, SEEK_END) != 0){
+            perror("fseek");
+            return -1;
+        }
+
+        fwrite(KEYWORD, 3, 1, file_ptr);
+
+        if(fwrite(tag_ptr, ID3V1_TAG_SIZE - 3, 1, file_ptr) != 1){
+            perror("fwrite");
+            return -1;
+        }
+
+        return 0;
+    }
+
+    printf("Error writing tag.");
+    return -1;
+}
+
+int id3v1_delete(const char *file_path){
+    if(!file_path) return -1;
+
+    int exists = id3v1_exists(file_path);
+    
+    if(exists == -1){
+        printf("Error deleting file tag.");
+        return -1;
+    }
+
+    if(exists == 1){
+        printf("File doesn't have a id3v1 tag.");
+        return -1;
+    }
+
+    FILE *file_ptr = fopen(file_path, "rb");
+    fseek(file_ptr, 0, SEEK_END);
+    long int bytes_to_copy = ftell(file_ptr) - ID3V1_TAG_SIZE;
+    fclose(file_ptr);
+
+    char temp_file_path[strlen(file_path) + strlen(TEMP_FILE_EXTENSION)];
+    strcpy(temp_file_path, file_path);
+    strcat(temp_file_path, TEMP_FILE_EXTENSION);
+
+    FILE *file_source_ptr = fopen(file_path, "rb");
+    if(!file_source_ptr) return 1;
+    FILE *file_result_ptr = fopen(temp_file_path, "wb");
+    if(!file_result_ptr) return 1;
+
+    int c;
+    while(bytes_to_copy > 0 && (c = fgetc(file_source_ptr)) != EOF){
+        fputc(c, file_result_ptr);
+        bytes_to_copy--;
+    }
+
+    fclose(file_source_ptr);
+    fclose(file_result_ptr);
+
+    rename(temp_file_path, file_path);
 
     return 0;
 }
