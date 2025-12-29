@@ -11,7 +11,7 @@
 id3v1_tag id3v1_tag_new(void){
     id3v1_tag tag;
 
-    memset(&tag, 0, sizeof(id3v1_tag));
+    memset(&tag, 0, sizeof(tag));
     tag.genre = 255;
 
     return tag;
@@ -62,20 +62,6 @@ int id3v1_file_check(const char *file_path) {
     }
 
     return 0; // all checks passed
-}
-
-long int get_file_size(const char *file_path){
-    if(!file_path) return -1;
-    FILE *file_ptr = fopen(file_path, "rb");
-
-    fseek(file_ptr, 0, SEEK_END);
-    
-    return ftell(file_ptr);
-}
-
-int is_file_mp3(const char file_path){
-    if(!file_path) return -1;
-    
 }
 
 int id3v1_exists(const char *file_path){
@@ -144,7 +130,7 @@ void id3v1_print(const id3v1_tag *tag_ptr){
 }
 
 int id3v1_read(const char *file_path, id3v1_tag *tag_ptr){
-    if(id3v1_file_check(file_path) != 0){
+    if(id3v1_exists(file_path) != 0){
         printf("File isn't a .mp3 file or id3tag doesn't exist.\n");
         return 1;
     }
@@ -213,12 +199,12 @@ int id3v1_delete(const char *file_path){
     int exists = id3v1_exists(file_path);
     
     if(exists == -1){
-        printf("Error deleting file tag.");
+        printf("Error deleting file tag.\n");
         return -1;
     }
 
     if(exists == 1){
-        printf("File doesn't have a id3v1 tag.");
+        printf("File doesn't have a id3v1 tag.\n");
         return -1;
     }
 
@@ -256,7 +242,7 @@ int id3v1_set_title(id3v1_tag *tag_ptr, const char *title){
     if(strlen(title) > 30) return 1;
 
     memset(tag_ptr->title, 0, sizeof(tag_ptr->title));
-    memcpy(tag_ptr->title, title, 30);
+    memcpy(tag_ptr->title, title, strlen(title));
 
     return 0;
 }
@@ -267,7 +253,7 @@ int id3v1_set_artist(id3v1_tag *tag_ptr, const char *artist){
     if(strlen(artist) > 30) return 1;
 
     memset(tag_ptr->artist, 0, sizeof(tag_ptr->artist));
-    memcpy(tag_ptr->artist, artist, 30);
+    memcpy(tag_ptr->artist, artist, strlen(artist));
 
     return 0;
 }
@@ -278,7 +264,7 @@ int id3v1_set_album(id3v1_tag *tag_ptr, const char *album){
     if(strlen(album) > 30) return 1;
 
     memset(tag_ptr->album, 0, sizeof(tag_ptr->album));
-    memcpy(tag_ptr->album, album, 30);
+    memcpy(tag_ptr->album, album, strlen(album));
 
     return 0;
 }
@@ -289,7 +275,7 @@ int id3v1_set_year(id3v1_tag *tag_ptr, const char *year){
     if(strlen(year) > 4) return 1;
 
     memset(tag_ptr->year, 0, sizeof(tag_ptr->year));
-    memcpy(tag_ptr->year, year, 4);
+    memcpy(tag_ptr->year, year, strlen(year));
 
     return 0;
 }
@@ -300,7 +286,7 @@ int id3v1_set_comment(id3v1_tag *tag_ptr, const char *comment){
     if(strlen(comment) > 30) return 1;
 
     memset(tag_ptr->comment, 0, sizeof(tag_ptr->comment));
-    memcpy(tag_ptr->comment, comment, 30);
+    memcpy(tag_ptr->comment, comment, strlen(comment));
 
     return 0;
 }
