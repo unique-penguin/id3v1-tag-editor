@@ -1,12 +1,20 @@
 #include <stdio.h>
 #include <string.h>
-#include <ctype.h>
-#include <sys/stat.h>
+#include <errno.h>
 #include "id3v1.h"
+
+
 
 #define ID3V1_TAG_SIZE 128
 #define KEYWORD "TAG"
+#define VALID_FILE_EXTENSION ".mp3"
 #define TEMP_FILE_EXTENSION ".tmp"
+
+#define FILE_VALID 1
+#define FILE_INVALID 0
+#define FILE_ERROR -1
+
+
 
 id3v1_tag id3v1_tag_new(void){
     id3v1_tag tag;
@@ -17,73 +25,180 @@ id3v1_tag id3v1_tag_new(void){
     return tag;
 }
 
+
+
 void id3v1_tag_init(id3v1_tag *tag){
     if(!tag) return;
 
     *tag = id3v1_tag_new();
 }
 
-int id3v1_file_check(const char *file_path) {
-    if (!file_path) return 1;
 
-    // --- Check file extension ---
-    size_t len = strlen(file_path);
-    if (len < 4) return 2; // too short to be .mp3
-    const char *ext = file_path + len - 4;
-    if (!(tolower(ext[0]) == '.' && tolower(ext[1]) == 'm' && tolower(ext[2]) == 'p' && tolower(ext[3]) == '3')) {
-        return 3; // wrong extension
+
+int is_file_valid(const char *file_path){
+    if(!file_path){
+        fprintf(
+            stderr,
+            "Invalid argument: file_path is NULL\n"
+        );
+        return FILE_ERROR;
     }
 
-    // --- Check file existence and size ---
-    struct stat st;
-    if (stat(file_path, &st) != 0) return 4; // file does not exist
-    if (st.st_size < ID3V1_TAG_SIZE) return 5; // too small for ID3v1
+    size_t file_path_len = strlen(file_path);
+    if(file_path_len < 4){
+        fprintf(
+            stderr, 
+            "Invalid file '%s': expected file path size >=4, got %zu\n",
+            file_path,
+            file_path_len
+        );
+        return FILE_INVALID;
+    }
 
-    // --- Check read access and tag presence ---
+    const char *file_extension = file_path + file_path_len - strlen(VALID_FILE_EXTENSION);
+    if(strcmp(file_extension, VALID_FILE_EXTENSION) != 0){
+        fprintf(
+            stderr, 
+            "Invalid file '%s': expected extension %s, got %s\n",
+            file_path,
+            VALID_FILE_EXTENSION,
+            file_extension
+        );
+        return FILE_INVALID;
+    }
+
     FILE *file_ptr = fopen(file_path, "rb");
-    if (!file_ptr) return 6; // cannot open for reading
+    if(!file_ptr){
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot open file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        return FILE_ERROR;
+    } 
 
-    if (fseek(file_ptr, -ID3V1_TAG_SIZE, SEEK_END) != 0) {
+    if(fseek(file_ptr, 0, SEEK_END) != 0){
+        fprintf(
+            stderr, 
+            "Cannot seek file '%s': %s\n",
+            file_path,
+            strerror(errno)
+        );
         fclose(file_ptr);
-        return 7; // cannot seek to tag
+        return FILE_ERROR;
     }
-
-    char keyword[3];
-    if (fread(keyword, 3, 1, file_ptr) != 1) {
+    
+    long file_size = ftell(file_ptr);
+    if(file_size == -1L){
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot tell size of file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
         fclose(file_ptr);
-        return 8; // cannot read tag
+        return FILE_ERROR;
     }
 
-    fclose(file_ptr);
-
-    // --- Check ID3v1 TAG keyword ---
-    if (strncmp(keyword, KEYWORD, 3) != 0) {
-        return 9; // no ID3v1 tag found
+    if(fclose(file_ptr) != 0){
+        int errornum = errno;
+        fprintf(
+            stderr,
+            "Warning: Cannot close file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
     }
 
-    return 0; // all checks passed
+    if((size_t)file_size < ID3V1_TAG_SIZE){
+        fprintf(
+            stderr,
+            "Invalid file '%s': expected size >=%d, got %ld",
+            file_path,
+            ID3V1_TAG_SIZE,
+            file_size
+        );
+        return FILE_INVALID;
+    }
+
+    return FILE_VALID;
 }
 
-int id3v1_exists(const char *file_path){
+
+
+int id3v1_tag_exists(const char *file_path){
+    if(!file_path){
+        fprintf(
+            stderr,
+            "Invalid argument: file_path is NULL\n"
+        );
+        return -1;
+    }
+
     FILE *file_ptr = fopen(file_path, "rb");
-    if(!file_ptr) return -1;
+    if(!file_ptr){
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot open file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        return -1;
+    }
 
     if(fseek(file_ptr, -128, SEEK_END) != 0){
-        perror("fseek");
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot seek file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        fclose(file_ptr);
         return -1;
     }
 
     char keyword[3];
 
     if(fread(keyword, 3, 1, file_ptr) != 1){
-        perror("fread");
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot read file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        fclose(file_ptr);
         return -1;
     }
 
-    if(strncmp(keyword, KEYWORD, 3) != 0) return 1;
+    if(fclose(file_ptr) != 0){
+        int errornum = errno;
+        fprintf(
+            stderr,
+            "Warning: Cannot close file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+    }
+
+    if(strncmp(keyword, KEYWORD, 3) != 0){
+        fprintf(stderr,
+            "[DEBUG] File doens't have a ID3v1 Tag: %.3s != %s",
+            keyword,
+            KEYWORD
+        );
+        return 1;
+    }
 
     return 0;
 }
+
+
 
 static const char *id3v1_genres[] = {
     "Blues", "Classic Rock", "Country", "Dance", "Disco", "Funk",
@@ -112,6 +227,8 @@ static const char *id3v1_genres[] = {
     "Drum Solo", "A Cappella", "Euro-House", "Dance Hall"
 };
 
+
+
 const char* id3v1_genre_name(unsigned char genre){
     size_t num_genres = sizeof(id3v1_genres) / sizeof(id3v1_genres[0]);
     if(genre >= num_genres){
@@ -120,98 +237,261 @@ const char* id3v1_genre_name(unsigned char genre){
     return id3v1_genres[genre];
 }
 
-void id3v1_print(const id3v1_tag *tag_ptr){
+
+
+int id3v1_print(const id3v1_tag *tag_ptr){
     printf("Title   : %.30s\n", tag_ptr->title);
     printf("Artist  : %.30s\n", tag_ptr->artist);
     printf("Album   : %.30s\n", tag_ptr->album);
     printf("Year    : %.4s\n", tag_ptr->year);
     printf("Comment : %.30s\n", tag_ptr->comment);
     printf("Genre   : %u (%s)\n", tag_ptr->genre, id3v1_genre_name(tag_ptr->genre));
+
+    return 0;
 }
 
+
+
 int id3v1_read(const char *file_path, id3v1_tag *tag_ptr){
-    if(id3v1_exists(file_path) != 0){
-        printf("File isn't a .mp3 file or id3tag doesn't exist.\n");
-        return 1;
-    }
+    if(!file_path){
+        fprintf(
+            stderr,
+            "Invalid argument: file_path is NULL\n"
+        );
+        return -1;
+    };
 
     FILE *file_ptr = fopen(file_path, "rb");
     if(!file_ptr){
-        perror("fopen");
-        return 1;
+       int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot open file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        return -1;
     }
 
     if(fseek(file_ptr, -125, SEEK_END) != 0){
-        perror("fseek");
-        return 1;
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot seek file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        fclose(file_ptr);
+        return -1;
     }
 
     if(fread(tag_ptr, sizeof(id3v1_tag), 1, file_ptr) != 1){
-        perror("fread");
-        return 1;
+        int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot read file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        fclose(file_ptr);
+        return -1;
+    }
+
+    if(fclose(file_ptr) != 0){
+        int errornum = errno;
+        fprintf(
+            stderr,
+            "Warning: Cannot close file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
     }
 
     return 0;
 }
 
-int id3v1_write(const char *file_path, const id3v1_tag *tag_ptr){
-    if(!file_path) return -1;
-    if(!tag_ptr) return -1;
 
-    int exists = id3v1_exists(file_path);
+
+int id3v1_write(const char *file_path, const id3v1_tag *tag_ptr){
+    if(!file_path){
+        fprintf(
+            stderr,
+            "Invalid argument: file_path is NULL\n"
+        );
+        return -1;
+    };
+    if(!file_path){
+        fprintf(
+            stderr,
+            "Invalid argument: tag_ptr is NULL\n"
+        );
+        return -1;
+    };
+
+    int exists = id3v1_tag_exists(file_path);
     
-    if(exists == 1){
+    if(exists == 0){
         
         FILE *file_ptr = fopen(file_path, "ab");
-        fwrite(KEYWORD, 3, 1, file_ptr);
-        fwrite(tag_ptr, ID3V1_TAG_SIZE - 3, 1, file_ptr);
-        fclose(file_ptr);
+        if(!file_ptr){
+            int errornum = errno;
+            fprintf(
+                stderr, 
+                "Cannot open file '%s': %s\n",
+                file_path,
+                strerror(errornum)
+            );
+            return -1;
+        }
 
-        return 0;
-    }
-
-    if(exists == 0){
-        FILE *file_ptr = fopen(file_path, "r+b");
-        if(!file_ptr) return -1;
+        char buffer[ID3V1_TAG_SIZE];
+        memcpy(buffer, KEYWORD, 3);
+        memcpy(buffer + 3, tag_ptr, ID3V1_TAG_SIZE - 3);
         
-        if(fseek(file_ptr, ID3V1_TAG_SIZE, SEEK_END) != 0){
-            perror("fseek");
+        if(fwrite(buffer, 1, ID3V1_TAG_SIZE, file_ptr) != ID3V1_TAG_SIZE){
+            int errornum = errno;
+            fprintf(
+                stderr, 
+                "Cannot write to file '%s': %s\n",
+                file_path,
+                strerror(errornum)
+            );
             return -1;
         }
 
-        fwrite(KEYWORD, 3, 1, file_ptr);
-
-        if(fwrite(tag_ptr, ID3V1_TAG_SIZE - 3, 1, file_ptr) != 1){
-            perror("fwrite");
+        if(fclose(file_ptr) != 0){
+            int errornum = errno;
+            fprintf(
+                stderr,
+                "Cannot close file '%s': %s\n",
+                file_path,
+                strerror(errornum)
+            );
             return -1;
         }
 
         return 0;
     }
 
-    printf("Error writing tag.");
+    if(exists == 1){
+        FILE *file_ptr = fopen(file_path, "r+b");
+        if(!file_ptr){
+            int errornum = errno;
+            fprintf(
+                stderr, 
+                "Cannot open file '%s': %s\n",
+                file_path,
+                strerror(errornum)
+            );
+            return -1;
+        }
+        
+        if(fseek(file_ptr, -ID3V1_TAG_SIZE, SEEK_END) != 0){
+            int errornum = errno;
+            fprintf(
+                stderr, 
+                "Cannot seek file '%s': %s\n",
+                file_path,
+                strerror(errornum)
+            );
+            fclose(file_ptr);
+            return -1;
+        }
+
+        char buffer[ID3V1_TAG_SIZE];
+        memcpy(buffer, KEYWORD, 3);
+        memcpy(buffer + 3, tag_ptr, ID3V1_TAG_SIZE - 3);
+        
+        if(fwrite(buffer, 1, ID3V1_TAG_SIZE, file_ptr) != ID3V1_TAG_SIZE){
+            int errornum = errno;
+            fprintf(
+                stderr, 
+                "Cannot write to file '%s': %s\n",
+                file_path,
+                strerror(errornum)
+            );
+            return -1;
+        }
+
+        return 0;
+    }
+
     return -1;
 }
 
-int id3v1_delete(const char *file_path){
-    if(!file_path) return -1;
 
-    int exists = id3v1_exists(file_path);
-    
-    if(exists == -1){
-        printf("Error deleting file tag.\n");
-        return -1;
-    }
-
-    if(exists == 1){
-        printf("File doesn't have a id3v1 tag.\n");
-        return -1;
-    }
-
+int get_file_size(const char *file_path, size_t *file_size_ptr){
     FILE *file_ptr = fopen(file_path, "rb");
-    fseek(file_ptr, 0, SEEK_END);
-    long int bytes_to_copy = ftell(file_ptr) - ID3V1_TAG_SIZE;
-    fclose(file_ptr);
+    if(!file_ptr){
+       int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot open file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        return -1;
+    }
+
+    if(fseek(file_ptr, 0, SEEK_END) != 0){
+       int errornum = errno;
+        fprintf(
+            stderr, 
+            "Cannot seek file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        fclose(file_ptr);
+        return -1;
+    }
+
+    long int file_size = ftell(file_ptr);
+    if(file_size == -1L){
+        int errornum = errno;
+        fprintf(
+            stderr,
+            "Cannot tell size of file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+        fclose(file_ptr);
+        return -1;
+    }
+
+    if(fclose(file_ptr) != 0){
+        int errornum = errno;
+        fprintf(
+            stderr,
+            "Warning: Cannot close file '%s': %s\n",
+            file_path,
+            strerror(errornum)
+        );
+    }
+
+    *file_size_ptr = (size_t)file_size;
+
+    return 0;
+}
+
+
+
+int id3v1_delete(const char *file_path){
+    if(!file_path){
+        fprintf(
+            stderr,
+            "Invalid argument: file_path is NULL\n"
+        );
+        return -1;
+    };
+
+    int exists = id3v1_tag_exists(file_path);
+    
+    if(exists != 1){
+        return -1;
+    }
+
+    size_t bytes_to_copy;
+    get_file_size(file_path, &bytes_to_copy);
 
     char temp_file_path[strlen(file_path) + strlen(TEMP_FILE_EXTENSION)];
     strcpy(temp_file_path, file_path);
@@ -236,6 +516,8 @@ int id3v1_delete(const char *file_path){
     return 0;
 }
 
+
+
 int id3v1_set_title(id3v1_tag *tag_ptr, const char *title){
     if(!tag_ptr || !title) return 1;
 
@@ -246,6 +528,8 @@ int id3v1_set_title(id3v1_tag *tag_ptr, const char *title){
 
     return 0;
 }
+
+
 
 int id3v1_set_artist(id3v1_tag *tag_ptr, const char *artist){
     if(!tag_ptr || !artist) return 1;
@@ -258,6 +542,8 @@ int id3v1_set_artist(id3v1_tag *tag_ptr, const char *artist){
     return 0;
 }
 
+
+
 int id3v1_set_album(id3v1_tag *tag_ptr, const char *album){
     if(!tag_ptr || !album) return 1;
 
@@ -268,6 +554,8 @@ int id3v1_set_album(id3v1_tag *tag_ptr, const char *album){
 
     return 0;
 }
+
+
 
 int id3v1_set_year(id3v1_tag *tag_ptr, const char *year){
     if(!tag_ptr || !year) return 1;
@@ -280,6 +568,8 @@ int id3v1_set_year(id3v1_tag *tag_ptr, const char *year){
     return 0;
 }
 
+
+
 int id3v1_set_comment(id3v1_tag *tag_ptr, const char *comment){
     if(!tag_ptr || !comment) return 1;
 
@@ -290,6 +580,8 @@ int id3v1_set_comment(id3v1_tag *tag_ptr, const char *comment){
 
     return 0;
 }
+
+
 
 int id3v1_set_genre(id3v1_tag *tag_ptr, const unsigned char genre){
     if(!tag_ptr || !genre) return 1;
