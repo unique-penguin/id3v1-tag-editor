@@ -1,0 +1,26 @@
+-h
+Print help
+
+-d file
+file -d
+Delete tag from file.
+
+-t title file
+file -t title
+Change/add title tag field to file.
+
+file -t title -a artist -A album
+-t title file -a artist -A album
+-t title -a artist -A album file
+Change/add the tag&fields to the file.
+
+[Argument Resume]
+
+if(-h || !)
+	print("help");
+if(-d)
+	delete tag;
+create new_tag
+copy file_tag to new_tag
+change the new_tag with new values
+write new_tag to file_tag

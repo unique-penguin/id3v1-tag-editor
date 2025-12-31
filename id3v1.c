@@ -488,7 +488,7 @@ int id3v1_delete(const char *file_path){
         return -1;
     };
 
-    if(is_file_valid(file_path)!= 1){
+    if(is_file_valid(file_path) != 1){
         return -1;
     }
 
@@ -511,7 +511,7 @@ int id3v1_delete(const char *file_path){
     if(!file_result_ptr) return 1;
 
     int c;
-    while(bytes_to_copy > 0 && (c = fgetc(file_source_ptr)) != EOF){
+    while(bytes_to_copy - ID3V1_TAG_SIZE > 0 && (c = fgetc(file_source_ptr)) != EOF){
         fputc(c, file_result_ptr);
         bytes_to_copy--;
     }
