@@ -116,7 +116,7 @@ int is_file_valid(const char *file_path){
     if((size_t)file_size < ID3V1_TAG_SIZE){
         fprintf(
             stderr,
-            "Invalid file '%s': expected size >=%d, got %ld",
+            "Invalid file '%s': expected size >=%d, got %ld\n",
             file_path,
             ID3V1_TAG_SIZE,
             file_size
@@ -188,14 +188,14 @@ int id3v1_tag_exists(const char *file_path){
 
     if(strncmp(keyword, KEYWORD, 3) != 0){
         fprintf(stderr,
-            "[DEBUG] File doens't have a ID3v1 Tag: %.3s != %s",
+            "[DEBUG] File doens't have a ID3v1 Tag: %.3s != %s\n",
             keyword,
             KEYWORD
         );
-        return 1;
+        return 0;
     }
 
-    return 0;
+    return 1;
 }
 
 
@@ -260,6 +260,10 @@ int id3v1_read(const char *file_path, id3v1_tag *tag_ptr){
         );
         return -1;
     };
+
+    if(is_file_valid(file_path) != 1 || id3v1_tag_exists(file_path) != 1){
+        return -1;
+    }
 
     FILE *file_ptr = fopen(file_path, "rb");
     if(!file_ptr){
@@ -483,6 +487,10 @@ int id3v1_delete(const char *file_path){
         );
         return -1;
     };
+
+    if(is_file_valid(file_path)!= 1){
+        return -1;
+    }
 
     int exists = id3v1_tag_exists(file_path);
     
